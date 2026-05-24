@@ -1,11 +1,11 @@
 name: E2E Tests
 
 on:
-  repository_dispatch:
-    types: [api-update, ui-update]
+  push:
+    branches: [main]
 
 concurrency:
-  group: e2e-${{ github.event.action }}
+  group: e2e-main
   cancel-in-progress: true
 
 env:
