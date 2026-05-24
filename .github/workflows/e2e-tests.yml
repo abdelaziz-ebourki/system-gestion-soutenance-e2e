@@ -3,6 +3,8 @@ name: E2E Tests
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "triggers/**"
 
 concurrency:
   group: e2e-main
@@ -13,7 +15,54 @@ env:
   UI_URL: http://localhost:5173
 
 jobs:
+  build-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Build API
+        working-directory: api/api
+        run: ./mvnw -q package -DskipTests -Dspring.profiles.active=test
+
+      - name: Upload API artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-jar
+          path: api/api/target/*.jar
+
+  build-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install UI dependencies
+        working-directory: ui
+        run: npm ci
+
+      - name: Build UI
+        working-directory: ui
+        run: npm run build
+
+      - name: Upload UI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-dist
+          path: ui/dist/
+
   e2e:
+    needs: [build-api, build-ui]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,40 +79,26 @@ jobs:
           java-version: 17
           distribution: temurin
 
-      - name: Install dependencies
+      - name: Install e2e dependencies
         run: npm ci
 
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
 
-      - name: Clone API repo
-        uses: actions/checkout@v4
+      - name: Download API artifact
+        uses: actions/download-artifact@v4
         with:
-          repository: abdelaziz-ebourki/system-gestion-soutenance-api
-          path: api
-          ref: main
+          name: api-jar
 
-      - name: Clone UI repo
-        uses: actions/checkout@v4
+      - name: Download UI artifact
+        uses: actions/download-artifact@v4
         with:
-          repository: abdelaziz-ebourki/system-gestion-soutenance-ui
-          path: ui
-          ref: main
-
-      - name: Build & start API
-        working-directory: api/api
-        run: |
-          ./mvnw -q package -DskipTests -Dspring.profiles.active=test &
-          echo "Building API in background..."
-          sleep 5
-
-      - name: Build UI
-        working-directory: ui
-        run: npm ci && npm run build
+          name: ui-dist
+          path: ui-dist
 
       - name: Start API
         run: |
-          java -jar api/api/target/*.jar --spring.profiles.active=test &
+          java -jar *.jar --spring.profiles.active=test &
           echo "Waiting for API to be ready..."
           for i in $(seq 1 60); do
             curl -s -o /dev/null http://localhost:8080 && break
@@ -72,9 +107,8 @@ jobs:
           echo "API is ready"
 
       - name: Start UI preview
-        working-directory: ui
         run: |
-          npx vite preview --port 5173 --host 0.0.0.0 &
+          npx vite preview --port 5173 --host 0.0.0.0 ui-dist &
           echo "Waiting for UI to be ready..."
           for i in $(seq 1 15); do
             curl -s -o /dev/null -w "%{http_code}" http://localhost:5173 && break
