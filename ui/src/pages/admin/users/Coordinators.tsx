@@ -1,0 +1,166 @@
+import { type ColumnDef, type PaginationState } from "@tanstack/react-table";
+import { Plus } from "lucide-react";
+
+import { useCoordinators } from "@/hooks/use-queries";
+import type { Coordinator } from "@/types";
+import { DataTable } from "@/components/ui/data-table";
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+} from "@/components/ui";
+import { BulkImportDialog } from "@/components/admin/BulkImportDialog";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { useCoordinatorCrud } from "@/hooks/entities/use-coordinator-crud";
+import { CrudActions } from "@/components/admin/CrudActions";
+import { DeleteAlert } from "@/components/admin/DeleteAlert";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
+
+const FILTER_LIMIT = 5000;
+
+export default function Coordinators() {
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  });
+  const [isFiltering, setIsFiltering] = useState(false);
+  const [selectedCoordinators, setSelectedCoordinators] = useState<Coordinator[]>([]);
+  const [batchDialog, setBatchDialog] = useState<"delete" | null>(null);
+
+  const { data: coordinatorsData, isLoading, refetch } = useCoordinators(
+    isFiltering ? 0 : pagination.pageIndex,
+    isFiltering ? FILTER_LIMIT : pagination.pageSize,
+  );
+  const crud = useCoordinatorCrud();
+
+  const data = coordinatorsData?.items ?? [];
+  const pageCount = coordinatorsData?.pageCount ?? 0;
+
+  const columns = useMemo<ColumnDef<Coordinator>[]>(() => [
+    {
+      accessorKey: "lastName",
+      header: "Nom",
+    },
+    {
+      accessorKey: "firstName",
+      header: "Prénom",
+    },
+    {
+      accessorKey: "email",
+      header: "Email",
+    },
+    {
+      accessorKey: "isActive",
+      header: "Statut",
+      cell: ({ row }) => (
+        <Badge variant={row.getValue("isActive") ? "default" : "secondary"}>
+          {row.getValue("isActive") ? "Actif" : "Inactif"}
+        </Badge>
+      ),
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => (
+        <div className="text-right">
+          <CrudActions entity={row.original} onEdit={crud.openEdit} onDelete={crud.openDelete} />
+        </div>
+      ),
+    },
+  ], [crud]);
+
+  return (
+    <div className="space-y-6 pb-20">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Coordinateurs</h1>
+          <p className="text-muted-foreground">Gestion des responsables des soutenances.</p>
+        </div>
+        <div className="flex gap-2">
+          <BulkImportDialog entity="coordinator" triggerButtonText="Importation en masse" onSuccess={refetch} />
+          <Button onClick={crud.openCreate}>
+            <Plus className="size-4" /> Nouveau Coordinateur
+          </Button>
+        </div>
+      </div>
+
+        <DataTable columns={columns} data={data} loading={isLoading} getRowId={(row) => row.id} enableRowSelection onSelectedRowsChange={setSelectedCoordinators}
+          manualPagination={!isFiltering} pageCount={!isFiltering ? pageCount : undefined}
+          pagination={!isFiltering ? pagination : undefined} onPaginationChange={!isFiltering ? setPagination : undefined}
+          onFiltering={setIsFiltering}
+          filterColumns={["lastName", "firstName", "email"]} filterPlaceholder="Rechercher par nom, prénom ou email..." />
+
+      {selectedCoordinators.length > 0 && (
+        <div className="flex items-center justify-between fixed bottom-0 left-0 right-0 z-50 flex items-center justify-between border-t bg-background p-4 shadow-lg">
+          <span className="text-sm font-medium">{selectedCoordinators.length} coordinateur(s) sélectionné(s)</span>
+          <div className="flex gap-2">
+            <Button variant="destructive" size="sm" onClick={() => setBatchDialog("delete")}>
+              Supprimer
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <DeleteAlert
+        isOpen={batchDialog === "delete"}
+        onOpenChange={(o) => { if (!o) setBatchDialog(null); }}
+        entityName={`${selectedCoordinators.length} coordinateur(s)`}
+        onDelete={async () => {
+          try {
+            await Promise.all(selectedCoordinators.map((c) => crud.deleteMutation(c.id)));
+            toast.success(`${selectedCoordinators.length} coordinateur(s) supprimé(s)`);
+            setSelectedCoordinators([]);
+            setBatchDialog(null);
+          } catch {
+            toast.error("Erreur lors de la suppression");
+          }
+        }}
+        isPending={crud.isPending}
+      />
+
+      <Dialog open={crud.isDialogOpen} onOpenChange={crud.setIsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{crud.selected ? "Modifier" : "Ajouter"} Coordinateur</DialogTitle>
+            <DialogDescription>Compte administratif de gestion de major.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={crud.handleSubmit}>
+            <FieldGroup className="grid grid-cols-2 gap-4 py-4">
+              <Field>
+                <FieldLabel>Nom</FieldLabel>
+                <Input value={crud.formData.lastName}
+                  onChange={(e) => crud.setFormData({ ...crud.formData, lastName: e.target.value })}
+                  required error={crud.fieldErrors?.lastName} />
+              </Field>
+              <Field>
+                <FieldLabel>Prénom</FieldLabel>
+                <Input value={crud.formData.firstName}
+                  onChange={(e) => crud.setFormData({ ...crud.formData, firstName: e.target.value })}
+                  required error={crud.fieldErrors?.firstName} />
+              </Field>
+              <Field className="col-span-2">
+                <FieldLabel>Email</FieldLabel>
+                <Input type="email" value={crud.formData.email}
+                  onChange={(e) => crud.setFormData({ ...crud.formData, email: e.target.value })}
+                  required error={crud.fieldErrors?.email} />
+              </Field>
+            </FieldGroup>
+            <DialogFooter>
+              <Button type="submit" isLoading={crud.isPending} loadingText="Enregistrement...">Enregistrer</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <DeleteAlert isOpen={crud.isDeleteDialogOpen} onOpenChange={crud.setIsDeleteDialogOpen}
+        onDelete={crud.handleDelete} entityName={crud.selected ? `${crud.selected.lastName} ${crud.selected.firstName}` : undefined} isPending={crud.isPending} />
+    </div>
+  );
+}
