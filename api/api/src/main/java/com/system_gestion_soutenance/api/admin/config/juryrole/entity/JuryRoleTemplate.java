@@ -1,0 +1,33 @@
+package com.system_gestion_soutenance.api.admin.config.juryrole.entity;
+
+import com.system_gestion_soutenance.api.admin.defensesession.entity.DefenseType;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Table(name = "jury_role_template")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class JuryRoleTemplate {
+
+    @Id
+    private String id;
+
+    @Column(nullable = false, unique = true)
+    private String name;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "defense_type", nullable = false)
+    private DefenseType defenseType;
+
+    @ElementCollection
+    @CollectionTable(name = "jury_role_template_roles",
+            joinColumns = @JoinColumn(name = "jury_role_template_id"))
+    private List<TemplateRole> roles = new ArrayList<>();
+}
