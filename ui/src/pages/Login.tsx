@@ -1,5 +1,5 @@
 import { siteConfig } from "@/config/site";
-import React from "react";
+import { useState, type FormEvent } from "react";
 import { Landmark, ShieldCheck, BookOpen } from "lucide-react";
 import {
   Button,
@@ -20,14 +20,14 @@ import { useAuth } from "@/contexts/auth-context";
 import { validate, loginSchema } from "@/lib/validations";
 
 export default function Login() {
-  const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState("");
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const handleLogin = async (e: React.SubmitEvent<HTMLFormElement>) => {
+  const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const errors = validate(loginSchema, { email, password });
     if (errors) { setFieldErrors(errors); return; }
@@ -126,7 +126,7 @@ export default function Login() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="nom.prenom@univ.com"
+                    placeholder="nom.prenom@univh2c.ma"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
