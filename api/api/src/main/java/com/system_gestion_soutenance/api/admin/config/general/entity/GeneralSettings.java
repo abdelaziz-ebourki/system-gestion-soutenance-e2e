@@ -5,30 +5,32 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "general_settings")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class GeneralSettings {
 
-    @Id
-    private Long id = 1L;
+	@Id
+	private Long id = 1L;
 
-    @Column(name = "institution_name")
-    private String institutionName;
+	@Column(name = "institution_name")
+	private String institutionName;
 
-    @Column(name = "institution_logo_url")
-    private String institutionLogoUrl;
+	@Column(name = "institution_logo_url")
+	private String institutionLogoUrl;
 
-    private String timezone;
+	private String timezone;
 
-    @Column(name = "date_format")
-    private String dateFormat;
+	@Column(name = "date_format")
+	private String dateFormat;
 
-    @Column(name = "setup_completed")
-    private boolean setupCompleted;
+	@Column(name = "setup_completed")
+	private boolean setupCompleted;
 }

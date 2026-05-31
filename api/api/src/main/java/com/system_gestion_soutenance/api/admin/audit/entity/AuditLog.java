@@ -1,38 +1,39 @@
 package com.system_gestion_soutenance.api.admin.audit.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.time.LocalDateTime;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "audit_log")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class AuditLog {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    @Column(nullable = false)
-    private String action;
+	@Column(nullable = false)
+	private String action;
 
-    @Column(nullable = false)
-    private String entity;
+	@Column(nullable = false)
+	private String entity;
 
-    @Column(name = "entity_id")
-    private Long entityId;
+	@Column(name = "entity_id")
+	private Long entityId;
 
-    @Column(name = "admin_email")
-    private String adminEmail;
+	@Column(name = "admin_email")
+	private String adminEmail;
 
-    @Column(columnDefinition = "TEXT")
-    private String details;
+	@Column(columnDefinition = "TEXT")
+	private String details;
 
-    @Column(nullable = false)
-    private LocalDateTime timestamp;
+	@Column(nullable = false)
+	private LocalDateTime timestamp;
 }
