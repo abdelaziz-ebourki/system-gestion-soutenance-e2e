@@ -2,11 +2,12 @@ package com.system_gestion_soutenance.api.common.audit;
 
 import com.system_gestion_soutenance.api.admin.audit.entity.AuditLog;
 import com.system_gestion_soutenance.api.admin.audit.repository.AuditLogRepository;
-import com.system_gestion_soutenance.api.common.service.SecurityService;
 import java.time.LocalDateTime;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -16,13 +17,10 @@ public class AuditAspect {
 
 	private final AuditLogRepository auditLogRepository;
 	private final TransactionTemplate transactionTemplate;
-	private final SecurityService securityService;
 
-	public AuditAspect(AuditLogRepository auditLogRepository, TransactionTemplate transactionTemplate,
-			SecurityService securityService) {
+	public AuditAspect(AuditLogRepository auditLogRepository, TransactionTemplate transactionTemplate) {
 		this.auditLogRepository = auditLogRepository;
 		this.transactionTemplate = transactionTemplate;
-		this.securityService = securityService;
 	}
 
 	@Around("@annotation(audited)")
@@ -37,7 +35,7 @@ public class AuditAspect {
 			throw t;
 		}
 
-		String email = securityService.getOptionalCurrentUserEmail();
+		String email = extractEmail();
 		if (email == null)
 			return result;
 
@@ -74,6 +72,20 @@ public class AuditAspect {
 			auditLog.setTimestamp(LocalDateTime.now());
 			auditLogRepository.save(auditLog);
 		});
+	}
+
+	private String extractEmail() {
+		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+		if (auth != null && auth.isAuthenticated()) {
+			Object principal = auth.getPrincipal();
+			if (principal instanceof com.system_gestion_soutenance.api.user.entity.User user) {
+				return user.getEmail();
+			}
+			if (principal instanceof String name && !"anonymousUser".equals(name)) {
+				return name;
+			}
+		}
+		return null;
 	}
 
 	private Long extractEntityId(Object[] args, Object result) {

@@ -59,7 +59,7 @@ class JuryServiceTest {
 		var result = service.findAll();
 
 		assertEquals(1, result.size());
-		assertEquals("Projet Test", result.get(0).projectTitle());
+		assertEquals("Projet Test", result.get(0).get("projectTitle"));
 	}
 
 	@Test
@@ -95,7 +95,7 @@ class JuryServiceTest {
 		CreateJuryRequest request = new CreateJuryRequest(1L, 10L, List.of(member));
 		var result = service.create(request);
 
-		assertEquals("Projet", result.projectTitle());
+		assertEquals("Projet", result.get("projectTitle"));
 	}
 
 	@Test
@@ -160,11 +160,10 @@ class JuryServiceTest {
 		when(jury.getTemplateName()).thenReturn(null);
 		when(jury.getMembers()).thenReturn(List.of());
 
-		var result = service.update(1L,
-				new com.system_gestion_soutenance.api.coordinator.jury.dto.UpdateJuryRequest(2L, null, List.of()));
+		var result = service.update(1L, Map.of("projectId", "2"));
 
 		verify(jury).setProject(newProject);
-		assertEquals("New Proj", result.projectTitle());
+		assertEquals("New Proj", result.get("projectTitle"));
 	}
 
 	@Test
@@ -189,11 +188,10 @@ class JuryServiceTest {
 		when(jury.getTemplateName()).thenReturn("Template B");
 		when(jury.getMembers()).thenReturn(List.of());
 
-		var result = service.update(1L,
-				new com.system_gestion_soutenance.api.coordinator.jury.dto.UpdateJuryRequest(null, 20L, List.of()));
+		var result = service.update(1L, Map.of("templateId", "20"));
 
 		verify(jury).setTemplate(template);
-		assertEquals("Template B", result.templateName());
+		assertEquals("Template B", result.get("templateName"));
 	}
 
 	@Test
@@ -222,10 +220,8 @@ class JuryServiceTest {
 		when(jury.getTemplateName()).thenReturn(null);
 		when(jury.getMembers()).thenReturn(existingMembers);
 
-		com.system_gestion_soutenance.api.coordinator.jury.dto.UpdateJuryRequest updates = new com.system_gestion_soutenance.api.coordinator.jury.dto.UpdateJuryRequest(
-				null, null,
-				List.of(new com.system_gestion_soutenance.api.coordinator.jury.dto.UpdateJuryRequest.MemberEntry(5L,
-						"président")));
+		Map<String, Object> updates = new HashMap<>();
+		updates.put("members", List.of(Map.of("teacherId", "5", "roleName", "président")));
 		service.update(1L, updates);
 
 		assertEquals(1, existingMembers.size());
@@ -236,8 +232,7 @@ class JuryServiceTest {
 	void update_juryNotFound_throwsException() {
 		when(juryRepository.findById(99L)).thenReturn(Optional.empty());
 
-		assertThrows(ResponseStatusException.class, () -> service.update(99L,
-				new com.system_gestion_soutenance.api.coordinator.jury.dto.UpdateJuryRequest(1L, null, List.of())));
+		assertThrows(ResponseStatusException.class, () -> service.update(99L, Map.of("projectId", "1")));
 	}
 
 	@Test
@@ -264,12 +259,9 @@ class JuryServiceTest {
 		when(juryRepository.findById(1L)).thenReturn(Optional.of(jury));
 		when(teacherRepository.findById(5L)).thenReturn(Optional.of(mock(Teacher.class)));
 
-		com.system_gestion_soutenance.api.coordinator.jury.dto.UpdateJuryRequest updates = new com.system_gestion_soutenance.api.coordinator.jury.dto.UpdateJuryRequest(
-				null, null,
-				List.of(new com.system_gestion_soutenance.api.coordinator.jury.dto.UpdateJuryRequest.MemberEntry(5L,
-						"président"),
-						new com.system_gestion_soutenance.api.coordinator.jury.dto.UpdateJuryRequest.MemberEntry(5L,
-								"examinateur")));
+		Map<String, Object> updates = new HashMap<>();
+		updates.put("members", List.of(Map.of("teacherId", "5", "roleName", "président"),
+				Map.of("teacherId", "5", "roleName", "examinateur")));
 
 		assertThrows(ResponseStatusException.class, () -> service.update(1L, updates));
 	}

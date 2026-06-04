@@ -49,8 +49,7 @@ class StudentStatsControllerTest {
 
 	@Test
 	void getStats_returns200() throws Exception {
-		when(statsService.getStats(1L)).thenReturn(
-				new com.system_gestion_soutenance.api.student.stats.dto.StudentStatsResponse(3, 0, 2, "scheduled"));
+		when(statsService.getStats(1L)).thenReturn(Map.of("documentCount", 3));
 		mockMvc.perform(get("/api/student/stats")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.documentCount").value(3));
 	}

@@ -1,10 +1,11 @@
 package com.system_gestion_soutenance.api.student.defense.controller;
 
-import com.system_gestion_soutenance.api.common.service.SecurityService;
-import com.system_gestion_soutenance.api.student.defense.dto.StudentDefenseResponse;
 import com.system_gestion_soutenance.api.student.defense.service.StudentDefenseService;
+import com.system_gestion_soutenance.api.user.entity.User;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.Map;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -13,16 +14,18 @@ import org.springframework.web.bind.annotation.*;
 public class StudentDefenseController {
 
 	private final StudentDefenseService studentDefenseService;
-	private final SecurityService securityService;
 
-	public StudentDefenseController(StudentDefenseService studentDefenseService, SecurityService securityService) {
+	public StudentDefenseController(StudentDefenseService studentDefenseService) {
 		this.studentDefenseService = studentDefenseService;
-		this.securityService = securityService;
 	}
 
 	@GetMapping
 	@Operation(summary = "Get the connected student's defense info (project, jury, schedule, status)")
-	public StudentDefenseResponse getDefense() {
-		return studentDefenseService.getDefense(securityService.getCurrentUserId());
+	public Map<String, Object> getDefense() {
+		return studentDefenseService.getDefense(getCurrentUserId());
+	}
+
+	private Long getCurrentUserId() {
+		return ((User) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getId();
 	}
 }

@@ -59,11 +59,12 @@ class EvaluationServiceTest {
 		when(defenseSessionRepository.findById(1L)).thenReturn(Optional.of(ds));
 
 		EvaluationSubmitRequest req = new EvaluationSubmitRequest(15.0, "Good");
-		com.system_gestion_soutenance.api.teacher.evaluation.dto.EvaluationResponse result = service.submit(1L, req);
+		Map<String, Object> result = service.submit(1L, req);
 
-		assertEquals("submitted", result.status());
-		assertEquals(15.0, result.finalGrade());
-		assertEquals("Good", result.comment());
+		assertEquals("submitted", result.get("status"));
+		assertEquals(15.0, result.get("score"));
+		assertEquals("Good", result.get("comment"));
+		assertNotNull(result.get("submittedAt"));
 	}
 
 	@Test
@@ -78,10 +79,10 @@ class EvaluationServiceTest {
 		when(defenseSessionRepository.findById(1L)).thenReturn(Optional.of(ds));
 
 		EvaluationSubmitRequest req = new EvaluationSubmitRequest(null, "Good");
-		com.system_gestion_soutenance.api.teacher.evaluation.dto.EvaluationResponse result = service.submit(1L, req);
+		Map<String, Object> result = service.submit(1L, req);
 
-		assertNull(result.finalGrade());
-		assertEquals("Good", result.comment());
+		assertNull(result.get("score"));
+		assertEquals("Good", result.get("comment"));
 	}
 
 	@Test
@@ -96,10 +97,10 @@ class EvaluationServiceTest {
 		when(defenseSessionRepository.findById(1L)).thenReturn(Optional.of(ds));
 
 		EvaluationSubmitRequest req = new EvaluationSubmitRequest(15.0, null);
-		com.system_gestion_soutenance.api.teacher.evaluation.dto.EvaluationResponse result = service.submit(1L, req);
+		Map<String, Object> result = service.submit(1L, req);
 
-		assertEquals(15.0, result.finalGrade());
-		assertNull(result.comment());
+		assertEquals(15.0, result.get("score"));
+		assertNull(result.get("comment"));
 	}
 
 	@Test
@@ -132,10 +133,9 @@ class EvaluationServiceTest {
 		when(projectRepository.findById(10L)).thenReturn(Optional.of(project));
 		when(groupRepository.findByProjectId(10L)).thenReturn(List.of());
 
-		List<com.system_gestion_soutenance.api.teacher.evaluation.dto.EvaluationResponse> result = service
-				.findByTeacher(1L);
+		List<Map<String, Object>> result = service.findByTeacher(1L);
 
-		assertEquals(1, result.size());
+		assertEquals("Bob Test", ((List<?>) result.get(0).get("studentNames")).get(0));
 	}
 
 	@Test
@@ -152,9 +152,8 @@ class EvaluationServiceTest {
 		when(projectRepository.findById(10L)).thenReturn(Optional.of(new Project()));
 		when(groupRepository.findByProjectId(10L)).thenReturn(List.of(group));
 
-		List<com.system_gestion_soutenance.api.teacher.evaluation.dto.EvaluationResponse> result = service
-				.findByTeacher(1L);
+		List<Map<String, Object>> result = service.findByTeacher(1L);
 
-		assertEquals(1, result.size());
+		assertEquals("Alice Test", ((List<?>) result.get(0).get("studentNames")).get(0));
 	}
 }

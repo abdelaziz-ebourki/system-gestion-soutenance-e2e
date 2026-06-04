@@ -50,12 +50,12 @@ class StudentStatsServiceTest {
 		when(groupRepository.findByStudentId(1L)).thenReturn(Optional.of(group));
 		when(slotAssignmentRepository.existsByProjectId(10L)).thenReturn(true);
 
-		com.system_gestion_soutenance.api.student.stats.dto.StudentStatsResponse result = service.getStats(1L);
+		Map<String, Object> result = service.getStats(1L);
 
-		assertEquals(2, result.documentCount());
-		assertEquals(1L, result.missingDocuments());
-		assertEquals(2, result.groupMembers());
-		assertEquals("scheduled", result.defenseStatus());
+		assertEquals(2, result.get("documentCount"));
+		assertEquals(1L, result.get("missingDocuments"));
+		assertEquals(2, result.get("groupMembers"));
+		assertEquals("scheduled", result.get("defenseStatus"));
 	}
 
 	@Test
@@ -70,10 +70,10 @@ class StudentStatsServiceTest {
 		when(documentRepository.findByStudentId(1L)).thenReturn(List.of(doc));
 		when(groupRepository.findByStudentId(1L)).thenReturn(Optional.of(group));
 
-		com.system_gestion_soutenance.api.student.stats.dto.StudentStatsResponse result = service.getStats(1L);
+		Map<String, Object> result = service.getStats(1L);
 
-		assertEquals("pending", result.defenseStatus());
-		assertEquals(0L, result.missingDocuments());
+		assertEquals("pending", result.get("defenseStatus"));
+		assertEquals(0L, result.get("missingDocuments"));
 	}
 
 	@Test
@@ -89,9 +89,9 @@ class StudentStatsServiceTest {
 		when(groupRepository.findByStudentId(1L)).thenReturn(Optional.of(group));
 		when(slotAssignmentRepository.existsByProjectId(10L)).thenReturn(false);
 
-		com.system_gestion_soutenance.api.student.stats.dto.StudentStatsResponse result = service.getStats(1L);
+		Map<String, Object> result = service.getStats(1L);
 
-		assertEquals("pending", result.defenseStatus());
+		assertEquals("pending", result.get("defenseStatus"));
 	}
 
 	@Test
@@ -99,12 +99,12 @@ class StudentStatsServiceTest {
 		when(documentRepository.findByStudentId(1L)).thenReturn(List.of());
 		when(groupRepository.findByStudentId(1L)).thenReturn(Optional.empty());
 
-		com.system_gestion_soutenance.api.student.stats.dto.StudentStatsResponse result = service.getStats(1L);
+		Map<String, Object> result = service.getStats(1L);
 
-		assertEquals(0, result.documentCount());
-		assertEquals(0L, result.missingDocuments());
-		assertEquals(0, result.groupMembers());
-		assertEquals("pending", result.defenseStatus());
+		assertEquals(0, result.get("documentCount"));
+		assertEquals(0L, result.get("missingDocuments"));
+		assertEquals(0, result.get("groupMembers"));
+		assertEquals("pending", result.get("defenseStatus"));
 	}
 
 	private static Student student(Long id) {

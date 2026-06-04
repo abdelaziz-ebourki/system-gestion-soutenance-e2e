@@ -48,8 +48,7 @@ class TeacherScheduleControllerTest {
 
 	@Test
 	void getSchedule_returns200() throws Exception {
-		when(service.getSchedule(1L)).thenReturn(
-				new com.system_gestion_soutenance.api.teacher.schedule.dto.TeacherScheduleResponse(List.of()));
+		when(service.getSchedule(1L)).thenReturn(List.of());
 		mockMvc.perform(get("/api/teacher/schedule")).andExpect(status().isOk());
 	}
 }

@@ -49,27 +49,21 @@ class StudentGroupControllerTest {
 
 	@Test
 	void getWorkspace_returns200() throws Exception {
-		when(studentGroupService.getWorkspace(1L))
-				.thenReturn(new com.system_gestion_soutenance.api.student.group.dto.StudentGroupWorkspaceResponse(null,
-						List.of(), null, null, true));
+		when(studentGroupService.getWorkspace(1L)).thenReturn(Map.of("documents", 3));
 		mockMvc.perform(get("/api/student/group")).andExpect(status().isOk())
-				.andExpect(jsonPath("$.isGroupCreationOpen").value(true));
+				.andExpect(jsonPath("$.documents").value(3));
 	}
 
 	@Test
 	void createGroup_returns201() throws Exception {
-		when(studentGroupService.createGroup(1L))
-				.thenReturn(new com.system_gestion_soutenance.api.student.group.dto.GroupDetailsResponse(1L,
-						"Groupe de Alice", null, null, List.of()));
+		when(studentGroupService.createGroup(1L)).thenReturn(Map.of("groupName", "Groupe de Alice"));
 		mockMvc.perform(post("/api/student/group")).andExpect(status().isCreated())
 				.andExpect(jsonPath("$.groupName").value("Groupe de Alice"));
 	}
 
 	@Test
 	void joinGroup_returns200() throws Exception {
-		when(studentGroupService.joinGroup(anyLong(), eq(1L)))
-				.thenReturn(new com.system_gestion_soutenance.api.student.group.dto.GroupDetailsResponse(1L,
-						"Groupe Test", null, null, List.of()));
+		when(studentGroupService.joinGroup(anyLong(), eq(1L))).thenReturn(Map.of("groupName", "Groupe Test"));
 		mockMvc.perform(post("/api/student/group/10/join")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.groupName").value("Groupe Test"));
 	}

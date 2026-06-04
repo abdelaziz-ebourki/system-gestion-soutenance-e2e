@@ -10,8 +10,6 @@ import com.system_gestion_soutenance.api.coordinator.group.repository.GroupRepos
 import com.system_gestion_soutenance.api.coordinator.jury.repository.JuryRepository;
 import com.system_gestion_soutenance.api.coordinator.project.entity.Project;
 import com.system_gestion_soutenance.api.coordinator.project.repository.ProjectRepository;
-import com.system_gestion_soutenance.api.coordinator.schedule.dto.ScheduleRequest;
-import com.system_gestion_soutenance.api.coordinator.schedule.dto.ScheduleResponse;
 import com.system_gestion_soutenance.api.coordinator.schedule.entity.SlotAssignment;
 import com.system_gestion_soutenance.api.coordinator.schedule.repository.SlotAssignmentRepository;
 import com.system_gestion_soutenance.api.notification.entity.AppNotification;
@@ -53,28 +51,34 @@ public class ScheduleService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<ScheduleResponse> getSchedule() {
+	public Map<String, Map<String, Object>> getSchedule() {
 		List<SlotAssignment> slots = slotAssignmentRepository.findAllWithRoom();
-		return slots.stream().map(this::toResponse).collect(Collectors.toList());
+		Map<String, Map<String, Object>> result = new LinkedHashMap<>();
+		for (SlotAssignment slot : slots) {
+			result.put(slot.getId().toString(), toResponse(slot));
+		}
+		return result;
 	}
 
 	@Transactional
-	public List<ScheduleResponse> saveSchedule(ScheduleRequest request) {
+	public Map<String, Map<String, Object>> saveSchedule(Map<String, Map<String, Object>> schedule) {
 		slotAssignmentRepository.deleteAll();
 
-		for (var slotReq : request.slots()) {
+		for (Map.Entry<String, Map<String, Object>> entry : schedule.entrySet()) {
+			Map<String, Object> data = entry.getValue();
+
 			SlotAssignment slot = new SlotAssignment();
-			slot.setTitle(slotReq.title());
-			slot.setDate(slotReq.date());
-			slot.setTime(slotReq.time());
+			slot.setTitle((String) data.get("title"));
+			slot.setDate((String) data.get("date"));
+			slot.setTime((String) data.get("time"));
 
-			if (slotReq.projectId() != null)
-				slot.setProjectId(slotReq.projectId());
+			if (data.containsKey("projectId") && data.get("projectId") != null)
+				slot.setProjectId(toLong(data.get("projectId")));
 
-			if (slotReq.roomId() != null) {
-				Room room = roomRepository.findById(slotReq.roomId())
+			if (data.containsKey("roomId") && data.get("roomId") != null) {
+				Room room = roomRepository.findById(toLong(data.get("roomId")))
 						.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-								"Salle introuvable: " + slotReq.roomId()));
+								"Salle introuvable: " + data.get("roomId")));
 				slot.setRoom(room);
 			}
 
@@ -85,7 +89,7 @@ public class ScheduleService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<ScheduleResponse> autoGenerate(Long defenseSessionId) {
+	public Map<String, Map<String, Object>> autoGenerate(Long defenseSessionId) {
 		DefenseSession ds = defenseSessionRepository.findById(defenseSessionId).orElseThrow(
 				() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Session de soutenance non trouvée"));
 
@@ -128,7 +132,7 @@ public class ScheduleService {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Aucun projet approuvé avec jury");
 		}
 
-		List<ScheduleResponse> result = new ArrayList<>();
+		Map<String, Map<String, Object>> schedule = new LinkedHashMap<>();
 		Set<Long> assignedProjects = new HashSet<>();
 
 		LocalDate current = ds.getStartDate();
@@ -143,26 +147,17 @@ public class ScheduleService {
 					approvedProjects.stream().filter(p -> !assignedProjects.contains(p.getId()))
 							.filter(p -> projectStudentCounts.getOrDefault(p.getId(), 0) <= room.getCapacity())
 							.findFirst().ifPresent(project -> {
-								// We can't easily put into the outer list here, so we'll collect and sort later
-								// or use a list
-								// For now, let's use a temporary list and add to it.
-								// But this is inside a lambda. Let's use a simple for loop instead of stream
-								// for the project.
+								String slotId = UUID.randomUUID().toString();
+								Map<String, Object> entry = new LinkedHashMap<>();
+								entry.put("id", slotId);
+								entry.put("title", project.getTitle());
+								entry.put("date", currentDate.toString());
+								entry.put("time", currentTime.toString());
+								entry.put("projectId", project.getId());
+								entry.put("roomId", room.getId());
+								schedule.put(slotId, entry);
+								assignedProjects.add(project.getId());
 							});
-
-					// Refactoring the inner loop to avoid lambda limitations
-					for (Project project : approvedProjects) {
-						if (!assignedProjects.contains(project.getId())
-								&& projectStudentCounts.getOrDefault(project.getId(), 0) <= room.getCapacity()) {
-
-							result.add(new ScheduleResponse(null, // Temporary ID
-									project.getTitle(), currentDate.toString(), currentTime.toString(), project.getId(),
-									room.getId(), room.getName(), project.getTitle(), getStudentNames(project.getId()),
-									"", "scheduled"));
-							assignedProjects.add(project.getId());
-							break;
-						}
-					}
 
 					time = time.plusMinutes(slotDuration + breakMinutes);
 				}
@@ -170,7 +165,7 @@ public class ScheduleService {
 			current = current.plusDays(1);
 		}
 
-		return result;
+		return schedule;
 	}
 
 	@Transactional
@@ -209,32 +204,22 @@ public class ScheduleService {
 		notificationRepository.save(notification);
 	}
 
-	private List<String> getStudentNames(Long projectId) {
-		List<com.system_gestion_soutenance.api.coordinator.group.entity.Group> groups = groupRepository
-				.findByProjectId(projectId);
-		for (var g : groups) {
-			if (g.getStudents() != null && !g.getStudents().isEmpty()) {
-				return g.getStudents().stream().map(s -> s.getFirstName() + " " + s.getLastName())
-						.collect(Collectors.toList());
-			}
-		}
-		Project project = projectRepository.findById(projectId).orElse(null);
-		if (project != null && project.getStudents() != null) {
-			return project.getStudents().stream().map(s -> s.getFirstName() + " " + s.getLastName())
-					.collect(Collectors.toList());
-		}
-		return List.of();
+	private Long toLong(Object value) {
+		if (value instanceof Number)
+			return ((Number) value).longValue();
+		if (value instanceof String)
+			return Long.parseLong((String) value);
+		return null;
 	}
 
-	private ScheduleResponse toResponse(SlotAssignment slot) {
-		Project project = projectRepository.findById(slot.getProjectId()).orElse(null);
-		String projectTitle = project != null ? project.getTitle() : "";
-		List<String> studentNames = project != null ? getStudentNames(project.getId()) : List.of();
-		Long roomId = slot.getRoom() != null ? slot.getRoom().getId() : null;
-		String roomName = slot.getRoom() != null ? slot.getRoom().getName() : null;
-
-		return new ScheduleResponse(slot.getId(), slot.getTitle(), slot.getDate(), slot.getTime(), slot.getProjectId(),
-				roomId, roomName, projectTitle, studentNames, "", "scheduled");
+	private Map<String, Object> toResponse(SlotAssignment slot) {
+		Map<String, Object> map = new LinkedHashMap<>();
+		map.put("id", slot.getId());
+		map.put("title", slot.getTitle());
+		map.put("date", slot.getDate());
+		map.put("time", slot.getTime());
+		map.put("projectId", slot.getProjectId());
+		map.put("roomId", slot.getRoom() != null ? slot.getRoom().getId() : null);
+		return map;
 	}
-
 }

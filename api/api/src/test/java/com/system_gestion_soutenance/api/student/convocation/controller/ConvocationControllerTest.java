@@ -51,9 +51,7 @@ class ConvocationControllerTest {
 
 	@Test
 	void getConvocation_scheduled_returnsPdf() throws Exception {
-		when(studentDefenseService.getDefense(1L))
-				.thenReturn(new com.system_gestion_soutenance.api.student.defense.dto.StudentDefenseResponse(null, null,
-						null, List.of(), null, null, null, null, "scheduled", null, null));
+		when(studentDefenseService.getDefense(1L)).thenReturn(Map.of("status", "scheduled"));
 		mockMvc.perform(get("/api/student/convocation")).andExpect(status().isOk())
 				.andExpect(content().contentType("application/pdf"));
 	}
@@ -66,9 +64,7 @@ class ConvocationControllerTest {
 
 	@Test
 	void getConvocation_notScheduled_returns404() throws Exception {
-		when(studentDefenseService.getDefense(1L))
-				.thenReturn(new com.system_gestion_soutenance.api.student.defense.dto.StudentDefenseResponse(null, null,
-						null, List.of(), null, null, null, null, "pending", null, null));
+		when(studentDefenseService.getDefense(1L)).thenReturn(Map.of("status", "pending"));
 		mockMvc.perform(get("/api/student/convocation")).andExpect(status().isNotFound());
 	}
 }

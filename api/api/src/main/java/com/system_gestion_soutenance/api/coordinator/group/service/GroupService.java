@@ -1,7 +1,6 @@
 package com.system_gestion_soutenance.api.coordinator.group.service;
 
 import com.system_gestion_soutenance.api.coordinator.group.dto.CreateGroupRequest;
-import com.system_gestion_soutenance.api.coordinator.group.dto.GroupResponse;
 import com.system_gestion_soutenance.api.coordinator.group.entity.Group;
 import com.system_gestion_soutenance.api.coordinator.group.repository.GroupRepository;
 import com.system_gestion_soutenance.api.coordinator.project.entity.Project;
@@ -30,12 +29,12 @@ public class GroupService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<GroupResponse> findAll() {
+	public List<Map<String, Object>> findAll() {
 		return groupRepository.findAllWithDetails().stream().map(this::toResponse).collect(Collectors.toList());
 	}
 
 	@Transactional
-	public GroupResponse create(CreateGroupRequest request) {
+	public Map<String, Object> create(CreateGroupRequest request) {
 		Project project = projectRepository.findById(request.projectId())
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Projet introuvable"));
 
@@ -61,14 +60,23 @@ public class GroupService {
 		groupRepository.deleteById(id);
 	}
 
-	private GroupResponse toResponse(Group group) {
+	private Map<String, Object> toResponse(Group group) {
+		Map<String, Object> map = new LinkedHashMap<>();
+		map.put("id", group.getId());
+		map.put("groupName", group.getGroupName());
+		map.put("projectId", group.getProject() != null ? group.getProject().getId() : null);
+		map.put("projectTitle", group.getProject() != null ? group.getProject().getTitle() : null);
+
+		List<String> studentIds = group.getStudents() != null
+				? group.getStudents().stream().map(s -> String.valueOf(s.getId())).collect(Collectors.toList())
+				: List.of();
 		List<String> studentNames = group.getStudents() != null
 				? group.getStudents().stream().map(s -> s.getFirstName() + " " + s.getLastName())
 						.collect(Collectors.toList())
 				: List.of();
-
-		return new GroupResponse(group.getId(), group.getGroupName(),
-				group.getProject() != null ? group.getProject().getId() : null,
-				group.getStudents() != null ? group.getStudents().size() : 0, studentNames);
+		map.put("studentIds", studentIds);
+		map.put("studentNames", studentNames);
+		map.put("sessionId", group.getSessionId());
+		return map;
 	}
 }

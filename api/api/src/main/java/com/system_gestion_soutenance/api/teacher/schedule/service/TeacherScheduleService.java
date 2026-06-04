@@ -9,8 +9,6 @@ import com.system_gestion_soutenance.api.coordinator.project.entity.Project;
 import com.system_gestion_soutenance.api.coordinator.project.repository.ProjectRepository;
 import com.system_gestion_soutenance.api.coordinator.schedule.entity.SlotAssignment;
 import com.system_gestion_soutenance.api.coordinator.schedule.repository.SlotAssignmentRepository;
-import com.system_gestion_soutenance.api.teacher.schedule.dto.TeacherScheduleResponse;
-import com.system_gestion_soutenance.api.teacher.schedule.dto.SlotDetails;
 import java.util.*;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -31,7 +29,7 @@ public class TeacherScheduleService {
 		this.groupRepository = groupRepository;
 	}
 
-	public TeacherScheduleResponse getSchedule(Long teacherId) {
+	public List<Map<String, Object>> getSchedule(Long teacherId) {
 		Set<Long> projectIdsForTeacher = new HashSet<>();
 		Map<Long, String> projectRoles = new HashMap<>();
 
@@ -75,7 +73,7 @@ public class TeacherScheduleService {
 			}
 		}
 
-		List<SlotDetails> result = new ArrayList<>();
+		List<Map<String, Object>> result = new ArrayList<>();
 		for (SlotAssignment slot : slotAssignmentRepository.findAll()) {
 			Long pid = slot.getProjectId();
 			if (pid == null || !projectIdsForTeacher.contains(pid))
@@ -85,12 +83,20 @@ public class TeacherScheduleService {
 			if (project == null)
 				continue;
 
-			result.add(
-					new SlotDetails(slot.getId(), pid, project.getTitle(), projectStudents.getOrDefault(pid, List.of()),
-							slot.getDate(), slot.getTime(), "", slot.getRoom() != null ? slot.getRoom().getName() : "",
-							projectRoles.getOrDefault(pid, ""), "scheduled"));
+			Map<String, Object> entry = new LinkedHashMap<>();
+			entry.put("id", slot.getId());
+			entry.put("projectId", pid);
+			entry.put("projectTitle", project.getTitle());
+			entry.put("studentNames", projectStudents.getOrDefault(pid, List.of()));
+			entry.put("date", slot.getDate());
+			entry.put("startTime", slot.getTime());
+			entry.put("endTime", "");
+			entry.put("roomName", slot.getRoom() != null ? slot.getRoom().getName() : "");
+			entry.put("role", projectRoles.getOrDefault(pid, ""));
+			entry.put("status", "scheduled");
+			result.add(entry);
 		}
 
-		return new TeacherScheduleResponse(result);
+		return result;
 	}
 }

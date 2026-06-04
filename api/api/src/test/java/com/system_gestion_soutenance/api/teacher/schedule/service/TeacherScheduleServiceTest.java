@@ -59,7 +59,7 @@ class TeacherScheduleServiceTest {
 		when(groupRepository.findAll()).thenReturn(List.of());
 		when(slotAssignmentRepository.findAll()).thenReturn(List.of());
 
-		assertTrue(service.getSchedule(1L).slots().isEmpty());
+		assertTrue(service.getSchedule(1L).isEmpty());
 	}
 
 	@Test
@@ -75,8 +75,8 @@ class TeacherScheduleServiceTest {
 
 		var result = service.getSchedule(1L);
 
-		assertEquals(1, result.slots().size());
-		assertEquals("supervisor", result.slots().get(0).role());
+		assertEquals(1, result.size());
+		assertEquals("supervisor", result.get(0).get("role"));
 	}
 
 	@Test
@@ -96,8 +96,8 @@ class TeacherScheduleServiceTest {
 
 		var result = service.getSchedule(1L);
 
-		assertEquals(1, result.slots().size());
-		assertTrue(result.slots().get(0).studentNames().isEmpty());
+		assertEquals(1, result.size());
+		assertTrue(((List<?>) result.get(0).get("studentNames")).isEmpty());
 	}
 
 	@Test
@@ -116,7 +116,7 @@ class TeacherScheduleServiceTest {
 
 		var result = service.getSchedule(1L);
 
-		assertEquals("", result.slots().get(0).roomName());
+		assertEquals("", result.get(0).get("roomName"));
 	}
 
 	@Test
@@ -133,7 +133,7 @@ class TeacherScheduleServiceTest {
 
 		var result = service.getSchedule(1L);
 
-		assertTrue(result.slots().isEmpty());
+		assertTrue(result.isEmpty());
 	}
 
 	@Test
@@ -149,7 +149,7 @@ class TeacherScheduleServiceTest {
 
 		var result = service.getSchedule(1L);
 
-		assertTrue(result.slots().isEmpty());
+		assertTrue(result.isEmpty());
 	}
 
 	@Test
@@ -166,8 +166,8 @@ class TeacherScheduleServiceTest {
 
 		var result = service.getSchedule(1L);
 
-		assertEquals(1, result.slots().size());
-		assertTrue(result.slots().get(0).studentNames().isEmpty());
+		assertEquals(1, result.size());
+		assertTrue(((List<?>) result.get(0).get("studentNames")).isEmpty());
 	}
 
 	@Test
@@ -188,7 +188,7 @@ class TeacherScheduleServiceTest {
 
 		var result = service.getSchedule(1L);
 
-		assertEquals("Salle C", result.slots().get(0).roomName());
+		assertEquals("Salle C", result.get(0).get("roomName"));
 	}
 
 	@Test
@@ -232,7 +232,7 @@ class TeacherScheduleServiceTest {
 
 		var result = service.getSchedule(1L);
 
-		assertEquals(2, result.slots().size());
+		assertEquals(2, result.size());
 	}
 
 	@Test
@@ -264,7 +264,7 @@ class TeacherScheduleServiceTest {
 
 		var result = service.getSchedule(1L);
 
-		assertEquals(1, result.slots().size());
-		assertEquals("Projet Test", result.slots().get(0).projectTitle());
+		assertEquals(1, result.size());
+		assertEquals("Projet Test", result.get(0).get("projectTitle"));
 	}
 }
