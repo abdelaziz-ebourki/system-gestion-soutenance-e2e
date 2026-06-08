@@ -5,13 +5,11 @@ import com.system_gestion_soutenance.api.admin.defensesession.repository.Defense
 import com.system_gestion_soutenance.api.admin.room.entity.Room;
 import com.system_gestion_soutenance.api.admin.room.repository.RoomRepository;
 import com.system_gestion_soutenance.api.coordinator.group.repository.GroupRepository;
-import com.system_gestion_soutenance.api.coordinator.jury.entity.Jury;
-import com.system_gestion_soutenance.api.coordinator.jury.entity.JuryMember;
-import com.system_gestion_soutenance.api.coordinator.jury.repository.JuryRepository;
+import com.system_gestion_soutenance.api.coordinator.defense.entity.Defense;
+import com.system_gestion_soutenance.api.coordinator.defense.entity.JuryMember;
+import com.system_gestion_soutenance.api.coordinator.defense.repository.DefenseRepository;
 import com.system_gestion_soutenance.api.coordinator.project.entity.Project;
 import com.system_gestion_soutenance.api.coordinator.project.repository.ProjectRepository;
-import com.system_gestion_soutenance.api.coordinator.schedule.entity.SlotAssignment;
-import com.system_gestion_soutenance.api.coordinator.schedule.repository.SlotAssignmentRepository;
 import com.system_gestion_soutenance.api.coordinator.unavailability.entity.Unavailability;
 import com.system_gestion_soutenance.api.coordinator.unavailability.repository.UnavailabilityRepository;
 import java.time.LocalDate;
@@ -22,6 +20,7 @@ import com.system_gestion_soutenance.api.coordinator.conflict.dto.ConflictDetail
 import com.system_gestion_soutenance.api.coordinator.conflict.dto.ConflictSlot;
 import com.system_gestion_soutenance.api.coordinator.schedule.dto.ScheduleRequest;
 import java.util.*;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -31,22 +30,20 @@ public class ConflictDetectionService {
 
 	private static final Logger log = LoggerFactory.getLogger(ConflictDetectionService.class);
 
-	private final SlotAssignmentRepository slotAssignmentRepository;
+	private final DefenseRepository defenseRepository;
 	private final RoomRepository roomRepository;
 	private final GroupRepository groupRepository;
 	private final ProjectRepository projectRepository;
-	private final JuryRepository juryRepository;
 	private final UnavailabilityRepository unavailabilityRepository;
 	private final DefenseSessionRepository defenseSessionRepository;
 
-	public ConflictDetectionService(SlotAssignmentRepository slotAssignmentRepository, RoomRepository roomRepository,
-			GroupRepository groupRepository, ProjectRepository projectRepository, JuryRepository juryRepository,
+	public ConflictDetectionService(DefenseRepository defenseRepository, RoomRepository roomRepository,
+			GroupRepository groupRepository, ProjectRepository projectRepository,
 			UnavailabilityRepository unavailabilityRepository, DefenseSessionRepository defenseSessionRepository) {
-		this.slotAssignmentRepository = slotAssignmentRepository;
+		this.defenseRepository = defenseRepository;
 		this.roomRepository = roomRepository;
 		this.groupRepository = groupRepository;
 		this.projectRepository = projectRepository;
-		this.juryRepository = juryRepository;
 		this.unavailabilityRepository = unavailabilityRepository;
 		this.defenseSessionRepository = defenseSessionRepository;
 	}
@@ -54,12 +51,17 @@ public class ConflictDetectionService {
 	public List<ConflictDetailResponse> validate(ScheduleRequest request, String defenseSessionId) {
 		Map<String, ConflictSlot> mergedSchedule = new LinkedHashMap<>();
 
-		for (SlotAssignment existing : slotAssignmentRepository.findAll()) {
+		List<Defense> existingDefenses = defenseRepository.findAllWithMembers();
+		for (Defense existing : existingDefenses) {
 			mergedSchedule.put(String.valueOf(existing.getId()),
-					new ConflictSlot(String.valueOf(existing.getId()), existing.getTitle(), existing.getDate(),
-							existing.getTime(), String.valueOf(existing.getProjectId()),
+					new ConflictSlot(String.valueOf(existing.getId()),
+							existing.getProject() != null ? existing.getProject().getTitle() : "",
+							existing.getDate().toString(), existing.getTime().toString(),
+							String.valueOf(existing.getProjectId()),
 							existing.getRoom() != null ? String.valueOf(existing.getRoom().getId()) : null));
 		}
+
+		Map<Long, Set<String>> juryTeacherIdsByProject = precomputeJuryTeacherIds(existingDefenses);
 
 		for (int i = 0; i < request.slots().size(); i++) {
 			var slot = request.slots().get(i);
@@ -70,20 +72,38 @@ public class ConflictDetectionService {
 							slot.roomId() == null ? null : String.valueOf(slot.roomId())));
 		}
 
-		return runAllChecks(mergedSchedule, defenseSessionId);
+		return runAllChecks(mergedSchedule, defenseSessionId, juryTeacherIdsByProject);
 	}
 
-	private List<ConflictDetailResponse> runAllChecks(Map<String, ConflictSlot> schedule, String defenseSessionId) {
+	private Map<Long, Set<String>> precomputeJuryTeacherIds(List<Defense> defenses) {
+		Map<Long, Set<String>> map = new HashMap<>();
+		for (Defense defense : defenses) {
+			if (defense.getProject() == null) {
+				continue;
+			}
+			Set<String> ids = new HashSet<>();
+			for (JuryMember member : defense.getMembers()) {
+				if (member.getTeacher() != null) {
+					ids.add(String.valueOf(member.getTeacher().getId()));
+				}
+			}
+			map.put(defense.getProject().getId(), ids);
+		}
+		return map;
+	}
+
+	private List<ConflictDetailResponse> runAllChecks(Map<String, ConflictSlot> schedule, String defenseSessionId,
+			Map<Long, Set<String>> juryTeacherIdsByProject) {
 		List<ConflictDetailResponse> conflicts = new ArrayList<>();
 
 		conflicts.addAll(checkProjectAlreadyScheduled(schedule));
 		conflicts.addAll(checkSlotOccupied(schedule));
 		conflicts.addAll(checkRoomCapacity(schedule));
 		conflicts.addAll(checkDateOutOfBounds(schedule, defenseSessionId));
-		conflicts.addAll(checkTeacherDoubleBooked(schedule));
+		conflicts.addAll(checkTeacherDoubleBooked(schedule, juryTeacherIdsByProject));
 		conflicts.addAll(checkSupervisorConflict(schedule));
 		conflicts.addAll(checkBreakInterval(schedule, defenseSessionId));
-		conflicts.addAll(checkTeacherUnavailable(schedule));
+		conflicts.addAll(checkTeacherUnavailable(schedule, juryTeacherIdsByProject));
 
 		return conflicts;
 	}
@@ -190,7 +210,8 @@ public class ConflictDetectionService {
 		return conflicts;
 	}
 
-	private List<ConflictDetailResponse> checkTeacherDoubleBooked(Map<String, ConflictSlot> schedule) {
+	private List<ConflictDetailResponse> checkTeacherDoubleBooked(Map<String, ConflictSlot> schedule,
+			Map<Long, Set<String>> juryTeacherIdsByProject) {
 		List<ConflictDetailResponse> conflicts = new ArrayList<>();
 		Map<String, String> dateTeacherSlot = new HashMap<>();
 
@@ -202,7 +223,7 @@ public class ConflictDetectionService {
 			if (projectId == null || date == null)
 				continue;
 
-			Set<String> teacherIds = getJuryTeacherIds(projectId);
+			Set<String> teacherIds = juryTeacherIdsByProject.getOrDefault(Long.valueOf(projectId), Set.of());
 			for (String tid : teacherIds) {
 				String key = date + "|" + tid;
 				if (dateTeacherSlot.containsKey(key)) {
@@ -293,7 +314,8 @@ public class ConflictDetectionService {
 		return conflicts;
 	}
 
-	private List<ConflictDetailResponse> checkTeacherUnavailable(Map<String, ConflictSlot> schedule) {
+	private List<ConflictDetailResponse> checkTeacherUnavailable(Map<String, ConflictSlot> schedule,
+			Map<Long, Set<String>> juryTeacherIdsByProject) {
 		List<ConflictDetailResponse> conflicts = new ArrayList<>();
 		List<Unavailability> unavailabilityList = unavailabilityRepository.findAll();
 
@@ -306,7 +328,7 @@ public class ConflictDetectionService {
 			if (projectId == null || date == null || time == null)
 				continue;
 
-			Set<String> teacherIds = getJuryTeacherIds(projectId);
+			Set<String> teacherIds = juryTeacherIdsByProject.getOrDefault(Long.valueOf(projectId), Set.of());
 			for (String tid : teacherIds) {
 				for (Unavailability ua : unavailabilityList) {
 					if (!String.valueOf(ua.getTeacherId()).equals(tid) || !ua.getDate().equals(date))
@@ -333,18 +355,6 @@ public class ConflictDetectionService {
 		if (project != null && project.getStudents() != null)
 			return project.getStudents().size();
 		return 0;
-	}
-
-	private Set<String> getJuryTeacherIds(String projectId) {
-		Set<String> ids = new HashSet<>();
-		for (Jury jury : juryRepository.findByProjectId(Long.valueOf(projectId))) {
-			for (JuryMember member : jury.getMembers()) {
-				if (member.getTeacher() != null) {
-					ids.add(String.valueOf(member.getTeacher().getId()));
-				}
-			}
-		}
-		return ids;
 	}
 
 	private ConflictDetailResponse createConflict(String type, String severity, String message, String slot,
