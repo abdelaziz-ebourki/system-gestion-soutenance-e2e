@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as api from "@/lib/api";
 import { CONFIG_STALE_TIME, AUDIT_LOG_PAGE_SIZE, DEFAULT_API_LIMIT } from "@/lib/constants";
-import type { EmailConfig } from "@/lib/api";
 
 export function useAdminStats() {
   return useQuery({ queryKey: ["admin", "stats"], queryFn: api.getAdminStats });
@@ -112,7 +111,7 @@ export function useMajors() {
 export function useCreateMajor() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string }) => api.createMajor(data),
+    mutationFn: (data: { name: string; departmentId?: number }) => api.createMajor(data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["majors"], refetchType: "active" }),
   });
 }
@@ -120,7 +119,7 @@ export function useCreateMajor() {
 export function useUpdateMajor() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: { name: string } }) =>
+    mutationFn: ({ id, data }: { id: number; data: { name: string; departmentId?: number } }) =>
       api.updateMajor(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["majors"], refetchType: "active" }),
   });
@@ -355,18 +354,3 @@ export function useUpdateDocumentConfig() {
   });
 }
 
-export function useEmailConfig() {
-  return useQuery({
-    queryKey: ["admin", "config", "email"],
-    queryFn: api.getEmailConfig,
-    staleTime: CONFIG_STALE_TIME,
-  });
-}
-
-export function useUpdateEmailConfig() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (data: EmailConfig) => api.updateEmailConfig(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "config", "email"], refetchType: "active" }),
-  });
-}

@@ -18,8 +18,8 @@ const DEPARTMENTS = [
 ];
 
 const MAJORS = [
-  { id: 1, name: "Génie Informatique" },
-  { id: 2, name: "Génie Civil" },
+  { id: 1, name: "Génie Informatique", departmentId: 1, departmentName: "Informatique", studentCount: 12 },
+  { id: 2, name: "Génie Civil", departmentId: 2, departmentName: "Mathématiques", studentCount: 8 },
 ];
 
 const LEVELS = [
@@ -79,8 +79,6 @@ const STUDENT_DOCUMENTS = [
   { id: 3, studentId: 1, name: "Déclaration sur l'honneur", type: "declaration", deadline: "2027-06-01", status: "validated", submittedAt: "2027-05-25T14:00:00Z", filePath: "/uploads/decl.pdf" },
   { id: 4, studentId: 1, name: "Attestation de stage", type: "internship", deadline: "2027-06-01", status: "rejected", submittedAt: "2027-05-20T09:00:00Z", filePath: "/uploads/att.pdf" },
 ];
-
-const EMAIL_CONFIG = { host: "smtp.example.com", port: 587, username: "test@example.com", password: "secret", senderName: "Université", senderEmail: "noreply@example.com", encryption: "tls" };
 
 const GENERAL_SETTINGS = { id: 1, setupCompleted: true, institutionName: "Université Hassan II", institutionLogoUrl: "", timezone: "Africa/Casablanca", dateFormat: "DD/MM/YYYY" };
 
@@ -167,9 +165,7 @@ export const handlers = [
   mockJson("get", "*/api/admin/config/majors", MAJORS),
   mockJson("get", "*/api/admin/config/levels", LEVELS),
   mockJson("get", "*/api/admin/config/grades", []),
-  mockJson("get", "*/api/admin/config/email", EMAIL_CONFIG),
   mockJson("get", "*/api/admin/config/jury-role-templates", JURY_ROLE_TEMPLATES),
-  mockEcho("put", "*/api/admin/config/email"),
 
   // Admin — paginated GETs (role-filtered /admin/users)
   http.get("*/api/admin/users", ({ request }) => filterByRole(new URL(request.url), ALL_USERS)),
